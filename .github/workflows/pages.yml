@@ -1,7 +1,10 @@
-# docs/ 를 GitHub Pages 로 내보낸다.
+# 굽어 놓은 docs/ 를 gh-pages 브랜치로 올린다 → https://malmok2.github.io/moderndigitizer/
 #
-# 저장소에 Pages 가 꺼져 있어도 configure-pages 의 enablement 가 켜 준다 — 설정 화면을
-# 손으로 만질 일이 없다. 굽어 놓은 docs/index.html 이 바뀔 때마다 그대로 올라간다.
+# Pages 를 <켜는> API 는 Actions 토큰으로 못 건드린다 (Resource not accessible by integration).
+# gh-pages 브랜치는 그 API 를 타지 않고, 브랜치가 생기면 Pages 가 알아서 켜진다.
+#
+# docs/ 트리를 그대로 뿌리로 삼은 커밋 하나를 만들어 force-push 한다. 부모가 없으므로
+# gh-pages 는 늘 커밋 한 개짜리로 남는다 — index.html 이 3 MB 라 판본이 쌓이면 곤란하다.
 name: Pages
 
 on:
@@ -15,28 +18,23 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# 올리는 일은 한 번에 하나만. 앞선 배포를 자르지는 않는다.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs
-      - id: deploy
-        uses: actions/deploy-pages@v4
+      - name: docs/ 를 gh-pages 로
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          tree=$(git rev-parse "HEAD:docs")
+          commit=$(git commit-tree "$tree" -m "publish ${GITHUB_SHA}")
+          git push --force origin "$commit:refs/heads/gh-pages"
+          echo "올렸다: https://malmok2.github.io/moderndigitizer/" >> "$GITHUB_STEP_SUMMARY"

@@ -92,6 +92,9 @@ npm i -D playwright && npx playwright install chromium
 node tools/check.js
 ```
 
+`docs/` 를 기본 브랜치에 올리면 워크플로(`.github/workflows/pages.yml`)가 그 내용을 `gh-pages`
+브랜치로 밀어 넣고, GitHub Pages 가 그 브랜치를 그대로 내보낸다. Pages 설정 화면은 손댈 일이 없다.
+
 내장 예제 그림(`examples/sample.png`)은 논문 그림처럼 생겼지만 **실제 측정 결과가 아니고**, 그림 안에도
 그렇게 적혀 있다.
 
