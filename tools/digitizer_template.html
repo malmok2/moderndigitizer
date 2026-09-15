@@ -1932,7 +1932,8 @@ function buildExport() {
       },
       datasets: sets.map(s => ({ name: s.name, color: s.color, points: s.p.map(p => [Number(fmtNum(p[0])), Number(fmtNum(p[1]))]) })),
     };
-    return { text: JSON.stringify(o, null, 2), n, ext: 'json', mime: 'application/json' };
+    const t = JSON.stringify(o, null, 2);
+    return { text: t, file: t, n, ext: 'json', mime: 'application/json' };
   }
   const sep = S.fmt === 'csv' ? ',' : '\t', ext = S.fmt, nl = '\r\n';
   const L = [];
@@ -1946,7 +1947,11 @@ function buildExport() {
       L.push(sets.flatMap(s => s.p[i] ? [fmtNum(s.p[i][0]), fmtNum(s.p[i][1])] : ['', '']).join(sep));
     }
   }
-  return { text: L.join(nl) + nl, n, ext, mime: 'text/' + (ext === 'csv' ? 'csv' : 'tab-separated-values') };
+  const t = L.join(nl) + nl;
+  // 파일에는 UTF-8 표시(BOM)를 앞에 붙인다. 한국어 윈도우의 엑셀은 .csv 를 CP949 로 읽어서,
+  // 이것이 없으면 머리글의 "곡선 1 x" 가 "怨≪뀈 1 x" 로 깨진다. 클립보드 쪽에는 붙이지
+  // 않는다 — 붙여넣기는 이미 유니코드로 건네지므로 첫 칸에 보이지 않는 글자만 남는다.
+  return { text: t, file: '\uFEFF' + t, n, ext, mime: 'text/' + (ext === 'csv' ? 'csv' : 'tab-separated-values') };
 }
 function baseName() {
   const b = (S.imgName || 'digitized').replace(/\.[a-z0-9]+$/i, '').replace(/[\\/:*?"<>|]+/g, '_');
@@ -1982,7 +1987,7 @@ $('#copyBtn').onclick = () => {
 };
 $('#dlBtn').onclick = () => {
   const r = buildExport(); if (!r) return toast(T().stNoData, 'bad');
-  download(r.text, baseName() + '.' + r.ext, r.mime);
+  download(r.file, baseName() + '.' + r.ext, r.mime);
 };
 
 // ── 작업 파일 — 그림·축·점을 한 덩어리로 ─────────────────────────────────────

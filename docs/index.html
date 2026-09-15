@@ -271,7 +271,7 @@ kbd{font:inherit;font-size:11px;font-weight:560;background:var(--glass2);box-sha
 <!-- ─────────────────────────── 왼쪽: 조작판 ─────────────────────────── -->
 <div id="ui" class="glass">
   <div class="head">
-    <h1 id="tTitle"></h1><span class="ver">v1.1.0</span>
+    <h1 id="tTitle"></h1><span class="ver">v1.1.1</span>
     <button class="iconbtn" id="themeBtn" title="">
       <svg id="themeIcon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.2"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3.1 3.1l1.1 1.1M11.8 11.8l1.1 1.1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1"/></svg></button>
     <button class="lang" id="langBtn"></button>
@@ -1925,14 +1925,15 @@ function buildExport() {
   if (!n) return null;
   if (S.fmt === 'json') {
     const o = {
-      tool: 'plot-digitizer', version: '1.1.0', source: S.imgName || null,
+      tool: 'plot-digitizer', version: '1.1.1', source: S.imgName || null,
       axes: {
         x: { from: num(S.val.x1), to: num(S.val.x2), log: S.logx },
         y: { from: num(S.val.y1), to: num(S.val.y2), log: S.logy },
       },
       datasets: sets.map(s => ({ name: s.name, color: s.color, points: s.p.map(p => [Number(fmtNum(p[0])), Number(fmtNum(p[1]))]) })),
     };
-    return { text: JSON.stringify(o, null, 2), n, ext: 'json', mime: 'application/json' };
+    const t = JSON.stringify(o, null, 2);
+    return { text: t, file: t, n, ext: 'json', mime: 'application/json' };
   }
   const sep = S.fmt === 'csv' ? ',' : '\t', ext = S.fmt, nl = '\r\n';
   const L = [];
@@ -1946,7 +1947,11 @@ function buildExport() {
       L.push(sets.flatMap(s => s.p[i] ? [fmtNum(s.p[i][0]), fmtNum(s.p[i][1])] : ['', '']).join(sep));
     }
   }
-  return { text: L.join(nl) + nl, n, ext, mime: 'text/' + (ext === 'csv' ? 'csv' : 'tab-separated-values') };
+  const t = L.join(nl) + nl;
+  // 파일에는 UTF-8 표시(BOM)를 앞에 붙인다. 한국어 윈도우의 엑셀은 .csv 를 CP949 로 읽어서,
+  // 이것이 없으면 머리글의 "곡선 1 x" 가 "怨≪뀈 1 x" 로 깨진다. 클립보드 쪽에는 붙이지
+  // 않는다 — 붙여넣기는 이미 유니코드로 건네지므로 첫 칸에 보이지 않는 글자만 남는다.
+  return { text: t, file: '\uFEFF' + t, n, ext, mime: 'text/' + (ext === 'csv' ? 'csv' : 'tab-separated-values') };
 }
 function baseName() {
   const b = (S.imgName || 'digitized').replace(/\.[a-z0-9]+$/i, '').replace(/[\\/:*?"<>|]+/g, '_');
@@ -1982,13 +1987,13 @@ $('#copyBtn').onclick = () => {
 };
 $('#dlBtn').onclick = () => {
   const r = buildExport(); if (!r) return toast(T().stNoData, 'bad');
-  download(r.text, baseName() + '.' + r.ext, r.mime);
+  download(r.file, baseName() + '.' + r.ext, r.mime);
 };
 
 // ── 작업 파일 — 그림·축·점을 한 덩어리로 ─────────────────────────────────────
 function projectJSON() {
   return JSON.stringify({
-    app: 'plot-digitizer', version: '1.1.0', saved: new Date().toISOString(),
+    app: 'plot-digitizer', version: '1.1.1', saved: new Date().toISOString(),
     image: S.imgSrc ? { name: S.imgName, src: S.imgSrc, w: S.imgW, h: S.imgH } : null,
     cal: S.cal, val: S.val, logx: S.logx, logy: S.logy, roi: S.roi,
     datasets: S.ds,

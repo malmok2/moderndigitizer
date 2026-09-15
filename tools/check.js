@@ -313,7 +313,33 @@ async function makeFigures(page) {
   ok('교차하는 두 곡선을 갈라 놓는다', xs.length === 2 && up < 0.3 && dn < 0.3,
      `${xs.length}개 · rms ${up.toFixed(3)} / ${dn.toFixed(3)}`);
 
-  // ── 5. 어두운 화면 · 언어 ─────────────────────────────────────────────────
+  // ── 5. 내려받은 파일이 엑셀에서 안 깨지는지 (한글 머리글) ─────────────────
+  console.log('\n내려받기');
+  await page.evaluate(() => {
+    S.ds = [{ name: '곡선 1', color: '#0072b2', on: true, pts: [[120, 300], [200, 250]] }];
+    S.act = 0; renderAll();
+  });
+  const grab = async (fmt) => {
+    await page.evaluate(f => { S.fmt = f; renderExport(); }, fmt);
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#dlBtn')]);
+    const f = path.join(TMP, 'out.' + fmt);
+    await dl.saveAs(f);
+    return fs.readFileSync(f);
+  };
+  const csvBuf = await grab('csv');
+  const head = csvBuf.subarray(0, 3);
+  ok('CSV 파일에 UTF-8 표시(BOM)가 붙는다', head[0] === 0xEF && head[1] === 0xBB && head[2] === 0xBF,
+     '첫 세 바이트 ' + [...head].map(b => b.toString(16).toUpperCase()).join(' '));
+  const csvTxt = csvBuf.toString('utf8');
+  ok('한글 머리글이 온전하다', csvTxt.includes('곡선 1 x') && csvTxt.includes('곡선 1 y'),
+     JSON.stringify(csvTxt.split('\r\n')[0].replace('\uFEFF', '')));
+  const jsonBuf = await grab('json');
+  ok('JSON 에는 BOM 을 붙이지 않는다 (파서가 뱉는다)', jsonBuf[0] === 0x7B, '첫 바이트 ' + jsonBuf[0].toString(16));
+  ok('JSON 이 그대로 읽힌다', JSON.parse(jsonBuf.toString('utf8')).datasets[0].name === '곡선 1');
+  const clip = await page.evaluate(() => { S.fmt = 'csv'; return buildExport().text.charCodeAt(0); });
+  ok('클립보드로는 BOM 없이 간다', clip !== 0xFEFF, 'U+' + clip.toString(16).toUpperCase());
+
+  // ── 6. 어두운 화면 · 언어 ─────────────────────────────────────────────────
   console.log('\n화면');
   await page.click('#themeBtn');
   ok('어두운 화면', await page.evaluate(() => document.documentElement.dataset.theme) === 'dark');
