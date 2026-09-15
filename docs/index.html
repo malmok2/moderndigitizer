@@ -271,7 +271,7 @@ kbd{font:inherit;font-size:11px;font-weight:560;background:var(--glass2);box-sha
 <!-- ─────────────────────────── 왼쪽: 조작판 ─────────────────────────── -->
 <div id="ui" class="glass">
   <div class="head">
-    <h1 id="tTitle"></h1><span class="ver">v1.0.0</span>
+    <h1 id="tTitle"></h1><span class="ver">v1.1.0</span>
     <button class="iconbtn" id="themeBtn" title="">
       <svg id="themeIcon" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.2"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3.1 3.1l1.1 1.1M11.8 11.8l1.1 1.1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1"/></svg></button>
     <button class="lang" id="langBtn"></button>
@@ -333,7 +333,11 @@ kbd{font:inherit;font-size:11px;font-weight:560;background:var(--glass2);box-sha
   <!-- 5. 자동 추출 -->
   <div class="grp">
     <div class="lbl"><span class="tag" id="tAuto"></span><span class="val" id="roiInfo"></span></div>
-    <div class="seg" id="modeSeg">
+    <button class="wide primary icon" id="discover">
+      <svg viewBox="0 0 16 16"><path d="M2 13V3M2 13h12"/><path d="M3.5 10.5c2-.5 3-6.5 5.5-6.5 1.6 0 2 2.5 3.5 2.5"/><circle cx="6" cy="8.4" r="1.1"/><circle cx="9" cy="4.2" r="1.1"/><circle cx="12.8" cy="6.4" r="1.1"/></svg>
+      <span id="tDiscover"></span></button>
+    <p class="hint" id="tDiscoverHint"></p>
+    <div class="seg" id="modeSeg" style="margin-top:10px">
       <button data-m="color" id="tModeColor"></button>
       <button data-m="dark" id="tModeDark"></button>
     </div>
@@ -348,15 +352,17 @@ kbd{font:inherit;font-size:11px;font-weight:560;background:var(--glass2);box-sha
       <button data-a="line" id="tAlgoLine"></button>
       <button data-a="blob" id="tAlgoBlob"></button>
     </div>
-    <div class="num"><span class="cap" id="tStep"></span><input type="number" id="stepN" min="1" max="60" step="1"></div>
-    <input type="range" id="stepR" min="1" max="60" step="1">
     <div class="num"><span class="cap" id="tMinA"></span><input type="number" id="minaN" min="1" max="400" step="1"></div>
     <input type="range" id="minaR" min="1" max="400" step="1">
     <div class="axes two mt">
       <button id="roiSet"></button><button id="roiReset"></button>
     </div>
-    <button class="wide primary" id="run" style="margin-top:6px"></button>
+    <button class="wide" id="run" style="margin-top:6px"></button>
     <p class="hint" id="tAutoHint"></p>
+    <div class="num" style="margin-top:10px"><span class="cap" id="tNpts"></span><input type="number" id="nptsN" min="0" max="400" step="5"></div>
+    <input type="range" id="nptsR" min="0" max="400" step="5">
+    <label class="pick"><input type="checkbox" id="cleanChk"><span class="nm" id="tClean"></span></label>
+    <p class="hint" id="tTidyHint"></p>
   </div>
 
   <!-- 6. 표시 -->
@@ -441,8 +447,12 @@ const STR = {
 
     auto: '자동 추출', modeColor: '색으로', modeDark: '어두운 선',
     eyedrop: '스포이드', tol: '허용 오차', algoLine: '선', algoBlob: '점(마커)',
-    step: '가로 간격 [px]', minA: '최소 크기 [px]', roiSet: '영역 지정', roiReset: '영역 전체',
-    run: '자동 추출 실행',
+    minA: '최소 크기 [px]', roiSet: '영역 지정', roiReset: '영역 전체',
+    run: '고른 색만 다시 뽑기',
+    discover: '곡선 자동 찾기',
+    discoverHint: '색을 찍어 주지 않아도 <b>그림 안의 계열을 스스로 찾는다</b> — 몇 개인지, 각각 선인지 점(마커)인지까지 가려 데이터셋으로 만든다. 선은 기울기를 내다보며 따라가므로 두 곡선이 <b>교차해도</b> 각자 제 길로 간다.',
+    npts: '점 수 (0 = 그대로)', clean: '튀는 점 정리',
+    tidyHint: '점이 너무 많으면 <b>점 수</b>를 정한다 — 곡선 길이를 따라 고르게 그만큼만 남긴다 (늘리지는 않는다). 표로 옮겨 쓸 때는 30~100개면 넉넉하다.',
     autoHint: '<b>스포이드</b>로 곡선 색을 찍고 실행한다. <b>선</b>은 세로줄마다 한 점씩, <b>점(마커)</b>은 덩어리마다 가운데를 잡는다. 결과는 지금 고른 데이터셋을 <b>덮어쓴다</b> — 되돌리기가 있다.',
     autoHintDark: '검은 선 그림이면 색 대신 <b>어두운 선</b>을 쓴다. 허용 오차가 밝기 문턱이 된다 — 키우면 연한 선까지 잡는다.',
     roiAll: '전체',
@@ -474,6 +484,8 @@ const STR = {
     stEyedrop: '곡선 위를 클릭한다 — 그 색을 쓴다',
     stRoiSet: '추출할 영역을 끌어서 그린다',
     stFound: a => `${a.n}점을 뽑았다`,
+    stDiscovered: a => `계열 ${a.k}개 · 모두 ${a.n}점을 찾았다`,
+    stNoSeries: '곡선을 찾지 못했다 — 영역을 좁히거나 색을 직접 찍어 뽑는다',
     stNone: '맞는 점이 없다 — 허용 오차를 키우거나 색을 다시 찍는다',
     stErased: a => `${a.n}점을 지웠다`,
     stCopied: a => `${a.n}점을 클립보드에 복사했다`,
@@ -514,8 +526,12 @@ const STR = {
 
     auto: 'Auto trace', modeColor: 'By colour', modeDark: 'Dark ink',
     eyedrop: 'Eyedropper', tol: 'Tolerance', algoLine: 'Line', algoBlob: 'Markers',
-    step: 'Column step [px]', minA: 'Min size [px]', roiSet: 'Set region', roiReset: 'Whole figure',
-    run: 'Run auto trace',
+    minA: 'Min size [px]', roiSet: 'Set region', roiReset: 'Whole figure',
+    run: 'Re-trace the picked colour',
+    discover: 'Find the curves',
+    discoverHint: 'No need to pick a colour — it <b>finds the series in the figure by itself</b>: how many there are, and whether each is a line or markers. Lines are followed by looking ahead along the slope, so two curves that <b>cross</b> each stay on their own path.',
+    npts: 'Point count (0 = all)', clean: 'Drop stray points',
+    tidyHint: 'Too many points? Set a <b>point count</b> — that many are kept, evenly spaced along the curve (it never invents new ones). 30–100 is plenty for a table.',
     autoHint: 'Pick the curve colour with the <b>eyedropper</b>, then run. <b>Line</b> takes one point per pixel column, <b>Markers</b> takes the centre of each blob. The result <b>replaces</b> the selected dataset — undo is there if you need it.',
     autoHintDark: 'For a black-and-white figure use <b>Dark ink</b> instead of a colour. Tolerance then acts as a brightness threshold — raise it to catch faint lines.',
     roiAll: 'whole figure',
@@ -547,6 +563,8 @@ const STR = {
     stEyedrop: 'click on the curve — that colour will be used',
     stRoiSet: 'drag the region to trace',
     stFound: a => `${a.n} points extracted`,
+    stDiscovered: a => `found ${a.k} series · ${a.n} points in all`,
+    stNoSeries: 'no curves found — narrow the region, or pick the colour by hand',
     stNone: 'nothing matched — raise the tolerance or pick the colour again',
     stErased: a => `${a.n} points deleted`,
     stCopied: a => `${a.n} points copied to the clipboard`,
@@ -571,8 +589,9 @@ const TEXT_MAP = {
   '#tTool': 'tool', '#tToolPick': 'toolPick', '#tToolErase': 'toolErase', '#tToolPan': 'toolPan',
   '#tUndo': 'undo', '#tRedo': 'redo',
   '#tAuto': 'auto', '#tModeColor': 'modeColor', '#tModeDark': 'modeDark', '#tEyedrop': 'eyedrop',
-  '#tTol': 'tol', '#tAlgoLine': 'algoLine', '#tAlgoBlob': 'algoBlob', '#tStep': 'step', '#tMinA': 'minA',
-  '#roiSet': 'roiSet', '#roiReset': 'roiReset', '#run': 'run',
+  '#tTol': 'tol', '#tAlgoLine': 'algoLine', '#tAlgoBlob': 'algoBlob', '#tMinA': 'minA',
+  '#roiSet': 'roiSet', '#roiReset': 'roiReset', '#run': 'run', '#tDiscover': 'discover',
+  '#tNpts': 'npts', '#tClean': 'clean',
   '#tShow': 'show', '#tPtSize': 'ptSize', '#tDim': 'dim', '#tGuides': 'guides', '#tJoin': 'join',
   '#tLoupe': 'loupe', '#tMask': 'mask',
   '#tExport': 'export', '#tSortX': 'sortX', '#tLongFmt': 'longFmt', '#tSig': 'sig',
@@ -582,6 +601,7 @@ const TEXT_MAP = {
 const HTML_MAP = {
   '#tImageHint': 'imageHint', '#tAxesHint': 'axesHint', '#tExportHint': 'exportHint',
   '#tTableHint': 'tableHint', '#tKeys': 'keys', '#tEmptySm': 'emptySm',
+  '#tDiscoverHint': 'discoverHint', '#tTidyHint': 'tidyHint',
 };
 const TIP_MAP = { '#themeBtn': 'themeTip', '#sideClose': 'close', '#targetSw': 'eyedrop' };
 
@@ -621,7 +641,7 @@ const S = {
   logx: false, logy: false,
   ds: [], act: 0,
   tool: 'pick', mode: 'color', algo: 'line',
-  target: '#d55e00', tol: 60, step: 4, minA: 6, roi: null,
+  target: '#d55e00', tol: 60, minA: 6, roi: null, npts: 200, clean: true,
   ps: 5, dim: 0, guides: true, join: true, loupe: true, maskShow: false,
   fmt: 'csv', sortX: true, longFmt: false, sig: 5,
 };
@@ -1239,55 +1259,45 @@ function roiBox() {
   return [0, 0, S.imgW, S.imgH];
 }
 // 마스크 한 장 — 영역 안에서 색이 맞으면 1.
-function buildMask() {
+function buildMask(o) {
+  o = o || {};
+  const mode = o.mode || S.mode;
+  const tol = o.tol === undefined ? S.tol : o.tol;
   const p = imagePixels(); if (!p) return null;
   const [x0, y0, x1, y1] = roiBox();
   const w = Math.max(0, x1 - x0), h = Math.max(0, y1 - y0);
   if (!w || !h) return null;
   const m = new Uint8Array(w * h), d = p.data;
-  const [tr, tg, tb] = hexRgb(S.target), tol2 = S.tol * S.tol;
+  const [tr, tg, tb] = hexRgb(o.target || S.target), tol2 = tol * tol;
   for (let y = 0; y < h; y++) {
-    let o = ((y + y0) * p.width + x0) * 4, k = y * w;
-    for (let x = 0; x < w; x++, o += 4, k++) {
-      if (d[o + 3] < 128) continue;
-      if (S.mode === 'dark') {
-        if (0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2] < S.tol) m[k] = 1;
+    let o2 = ((y + y0) * p.width + x0) * 4, k = y * w;
+    for (let x = 0; x < w; x++, o2 += 4, k++) {
+      if (d[o2 + 3] < 128) continue;
+      if (mode === 'dark') {
+        const mx = Math.max(d[o2], d[o2 + 1], d[o2 + 2]), mn = Math.min(d[o2], d[o2 + 1], d[o2 + 2]);
+        if (mx - mn <= 40 && 0.299 * d[o2] + 0.587 * d[o2 + 1] + 0.114 * d[o2 + 2] < tol) m[k] = 1;
       } else {
-        const dr = d[o] - tr, dg = d[o + 1] - tg, db = d[o + 2] - tb;
+        const dr = d[o2] - tr, dg = d[o2 + 1] - tg, db = d[o2 + 2] - tb;
         if (dr * dr + dg * dg + db * db <= tol2) m[k] = 1;
       }
     }
   }
   return { m, x0, y0, w, h };
 }
-function traceLine(M) {
-  const { m, x0, y0, w, h } = M, out = [];
-  const maxRun = Math.max(8, Math.round(h * 0.6));       // 축선·채움처럼 지나치게 긴 구간은 버린다
-  const st = Math.max(1, S.step | 0);
-  for (let x = 0; x < w; x += st) {
-    let y = 0;
-    while (y < h) {
-      if (!m[y * w + x]) { y++; continue; }
-      let e = y;
-      while (e + 1 < h && m[(e + 1) * w + x]) e++;
-      const len = e - y + 1;
-      if (len <= maxRun) out.push([x0 + x + 0.5, y0 + (y + e) / 2 + 0.5]);
-      y = e + 1;
-    }
-  }
-  return out;
-}
-function traceBlob(M) {
-  const { m, x0, y0, w, h } = M, out = [];
-  const seen = new Uint8Array(w * h), stack = new Int32Array(w * h);
-  const minA = Math.max(1, S.minA | 0), maxA = Math.max(minA * 4, Math.round(w * h * 0.08));
+
+// 이어진 덩어리 찾기 (8이웃). 마커를 뽑을 때도, 선이냐 점이냐를 가릴 때도 쓴다.
+function components(M, minA) {
+  const { m, w, h } = M;
+  const seen = new Uint8Array(w * h), stack = new Int32Array(w * h), out = [];
   for (let i = 0; i < w * h; i++) {
     if (!m[i] || seen[i]) continue;
-    let sp = 0, area = 0, sxs = 0, sys = 0;
+    let sp = 0, area = 0, sxs = 0, sys = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
     stack[sp++] = i; seen[i] = 1;
     while (sp) {
       const k = stack[--sp], ky = (k / w) | 0, kx = k - ky * w;
       area++; sxs += kx; sys += ky;
+      if (kx < x0) x0 = kx; if (kx > x1) x1 = kx;
+      if (ky < y0) y0 = ky; if (ky > y1) y1 = ky;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const nx = kx + dx, ny = ky + dy;
         if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
@@ -1295,9 +1305,346 @@ function traceBlob(M) {
         if (m[nk] && !seen[nk]) { seen[nk] = 1; stack[sp++] = nk; }
       }
     }
-    if (area >= minA && area <= maxA) out.push([x0 + sxs / area + 0.5, y0 + sys / area + 0.5]);
+    if (area >= minA) out.push({ area, cx: sxs / area, cy: sys / area, x0, y0, x1, y1 });
   }
   return out;
+}
+const elongOf = c => {
+  const bw = c.x1 - c.x0 + 1, bh = c.y1 - c.y0 + 1;
+  return Math.max(bw, bh) / Math.min(bw, bh);
+};
+const medOf = a => a.slice().sort((x, y) => x - y)[a.length >> 1];
+function traceBlob(M) {
+  const minA = Math.max(1, S.minA | 0), maxA = Math.max(minA * 4, Math.round(M.w * M.h * 0.08));
+  let cs = components(M, minA).filter(c => c.area <= maxA);
+  if (cs.length >= 4) {
+    // 마커는 서로 닮았다. 크기나 길쭉함이 유난한 것은 마커가 아니다
+    // — 범례의 색 견본(짧고 납작한 선)이 여기서 걸러진다.
+    const mA = medOf(cs.map(c => c.area)), mE = medOf(cs.map(elongOf));
+    cs = cs.filter(c => c.area >= mA * 0.3 && c.area <= mA * 3.5 && elongOf(c) <= Math.max(2.4, mE * 2.5));
+  }
+  return cs.map(c => [M.x0 + c.cx + 0.5, M.y0 + c.cy + 0.5]);
+}
+
+// ── 선 따라가기 ──────────────────────────────────────────────────────────────
+// 세로줄마다 이어진 구간을 찾고, 그 구간들을 <곡선 하나하나>로 이어 붙인다.
+// 다음 자리를 기울기로 내다보며 잇기 때문에, 두 곡선이 교차해도 각자 제 길로 간다.
+// 세로줄마다 무조건 한 점을 찍던 예전 방식이 범례선·격자선에 흔들리던 이유가 이것이다.
+function columnSegments(M) {
+  const { m, w, h } = M, cols = new Array(w);
+  const maxRun = Math.max(8, Math.round(h * 0.6));     // 축선·채움처럼 지나치게 긴 구간은 버린다
+  for (let x = 0; x < w; x++) {
+    const segs = [];
+    let y = 0;
+    while (y < h) {
+      if (!m[y * w + x]) { y++; continue; }
+      let e = y;
+      while (e + 1 < h && m[(e + 1) * w + x]) e++;
+      if (e - y + 1 <= maxRun) segs.push([y, e]);
+      y = e + 1;
+    }
+    cols[x] = segs;
+  }
+  return cols;
+}
+function chainSlope(ch) {
+  const p = ch.pts, n = p.length;
+  if (n < 2) return 0;
+  const k = Math.min(n, 6), a = p[n - k], b = p[n - 1];
+  return clamp((b[1] - a[1]) / Math.max(1, b[0] - a[0]), -60, 60);
+}
+function predictV(ch, x) {
+  const p = ch.pts, b = p[p.length - 1];
+  return b[1] + chainSlope(ch) * (x - b[0]);
+}
+const segDist = (sg, v) => (v >= sg[0] && v <= sg[1]) ? 0 : Math.min(Math.abs(v - sg[0]), Math.abs(v - sg[1]));
+function traceChains(M) {
+  const cols = columnSegments(M), w = M.w;
+  const GAP = 12;                                       // 몇 칸까지 끊겨도 같은 곡선으로 본다
+  const TOL = 9;                                        // 내다본 자리에서 이만큼 벗어나면 남의 곡선
+  let live = [];
+  const done = [];
+  for (let x = 0; x < w; x++) {
+    const segs = cols[x];
+    const used = new Array(segs.length).fill(false);
+    const near = new Array(segs.length).fill(false);     // 살아 있는 곡선이 거의 걸치고 있는 구간
+    const claim = new Array(segs.length).fill(0), pick = [];
+    for (const ch of live) {
+      const pred = predictV(ch, x);
+      // 가파른 구간은 한 칸에 수십 px 을 뛴다 — 기울기만큼 허용치를 넓힌다.
+      const slack = TOL + Math.abs(chainSlope(ch)) * 0.8 + ch.miss * 2;
+      let best = -1, bd = Infinity;
+      for (let i = 0; i < segs.length; i++) {
+        const d = segDist(segs[i], pred);
+        if (d < bd) { bd = d; best = i; }
+        if (d <= slack * 2.5) near[i] = true;
+      }
+      const got = best >= 0 && bd <= slack;
+      pick.push({ ch, seg: got ? best : -1, pred });
+      if (got) claim[best]++;
+    }
+    for (const q of pick) {
+      if (q.seg < 0) { q.ch.miss++; continue; }
+      const [a, b] = segs[q.seg], hgt = b - a + 1;
+      const typ = q.ch.runs.length ? medOf(q.ch.runs) : 3;
+      // 겹친 자리 — 두 곡선이 같은 덩어리를 동시에 집었거나, 덩어리가 유난히 두껍다.
+      // 가운데를 찍으면 두 곡선의 기억이 뭉개져 서로 갈아탄다. 제 기울기로 곧장 지난다.
+      if (claim[q.seg] > 1 || hgt > Math.max(4, typ * 2.2)) {
+        q.ch.pts.push([x, clamp(q.pred, a, b)]);
+      } else {
+        q.ch.pts.push([x, (a + b) / 2]);
+        q.ch.runs.push(hgt); if (q.ch.runs.length > 9) q.ch.runs.shift();
+      }
+      q.ch.miss = 0; used[q.seg] = true;
+    }
+    const keep = [];
+    for (const ch of live) (ch.miss > GAP ? done : keep).push(ch);
+    live = keep;
+    // 아무도 안 가져갔고 근처에 살아 있는 곡선도 없는 구간만 새 곡선이 된다.
+    // (잠깐 놓친 곡선 옆에 짝퉁이 생겨 같은 길을 두 번 훑던 문제를 여기서 막는다.)
+    for (let i = 0; i < segs.length; i++) {
+      if (used[i] || near[i]) continue;
+      const [a, b] = segs[i];
+      live.push({ pts: [[x, (a + b) / 2]], miss: 0, runs: [b - a + 1] });
+    }
+  }
+  return dedupeChains(done.concat(live).filter(c => c.pts.length >= 2));
+}
+// 짝퉁과 잡종을 걷어낸다. 나머지 조각들이 <합쳐서> 제 길을 거의 다 덮고 있으면
+// 그 조각은 새로 알려 주는 것이 없다 — 교차점에서 남의 곡선으로 갈아탄 잡종이 꼭 이렇다.
+function dedupeChains(chs) {
+  const at = c => {
+    if (!c._m) { c._m = new Map(); for (const p of c.pts) c._m.set(p[0], p[1]); }
+    return c._m;
+  };
+  const list = chs.slice().sort((a, b) => a.pts.length - b.pts.length);   // 짧은 것부터 의심한다
+  for (;;) {
+    let worst = -1, wf = 0;
+    for (let i = 0; i < list.length; i++) {
+      let hit = 0;
+      for (const p of list[i].pts) {
+        for (let j = 0; j < list.length; j++) {
+          if (j === i) continue;
+          const v = at(list[j]).get(p[0]);
+          if (v !== undefined && Math.abs(v - p[1]) <= 3) { hit++; break; }
+        }
+      }
+      const f = hit / list[i].pts.length;
+      if (f > wf) { wf = f; worst = i; }
+    }
+    if (worst < 0 || wf <= 0.85) break;
+    list.splice(worst, 1);
+  }
+  return list;
+}
+const chainX0 = c => c.pts[0][0], chainX1 = c => c.pts[c.pts.length - 1][0];
+const chainSpan = c => chainX1(c) - chainX0(c) + 1;
+// 점선이나 잠깐 끊긴 선: 끝점이 가깝고 기울기가 이어지면 한 곡선으로 붙인다.
+function mergeChains(chs) {
+  const out = chs.slice().sort((a, b) => chainX0(a) - chainX0(b));
+  for (let i = 0; i < out.length; i++) {
+    for (let j = i + 1; j < out.length; j++) {
+      const A = out[i], B = out[j];
+      const dx = chainX0(B) - chainX1(A);
+      if (dx < 0 || dx > 34) continue;
+      if (Math.abs(predictV(A, chainX0(B)) - B.pts[0][1]) > 14) continue;
+      A.pts = A.pts.concat(B.pts);
+      out.splice(j, 1); j = i;
+    }
+  }
+  return out;
+}
+// x 범위가 크게 겹치는 조각은 <서로 다른 곡선>이고, 앞뒤로 이어지는 조각은 한 곡선이다.
+// 같은 색 곡선이 둘이면 이 규칙이 갈라 주고, 범례선 같은 짧은 조각은 뒤에서 걸러진다.
+function groupChains(chs, w) {
+  const groups = [];
+  for (const ch of chs.slice().sort((a, b) => chainSpan(b) - chainSpan(a))) {
+    const a0 = chainX0(ch), a1 = chainX1(ch);
+    let put = null;
+    for (const g of groups) {
+      const ov = Math.min(g.x1, a1) - Math.max(g.x0, a0);
+      // 짧은 쪽을 기준으로 본다. 긴 곡선 한가운데 겹쳐 있는 짧은 조각(범례 견본)은
+      // 이어지는 뒷부분이 아니라 <다른 것>이다.
+      if (ov <= 4 || ov < 0.5 * Math.min(g.x1 - g.x0 + 1, a1 - a0 + 1)) { put = g; break; }
+    }
+    if (put) {
+      put.chs.push(ch); put.x0 = Math.min(put.x0, a0); put.x1 = Math.max(put.x1, a1);
+    } else groups.push({ chs: [ch], x0: a0, x1: a1 });
+  }
+  return groups.map(g => {
+    const chs = g.chs.sort((a, b) => chainX0(a) - chainX0(b));
+    return {
+      pts: [].concat(...chs.map(c => c.pts)),
+      span: g.x1 - g.x0 + 1,
+      run: Math.max(...chs.map(chainSpan)),      // 가장 긴 <한 줄기>
+    };
+  }).sort((a, b) => b.span - a.span);
+}
+
+// ── 다듬기 ───────────────────────────────────────────────────────────────────
+// 튀는 점: 양옆 점으로 내다본 자리와 얼마나 어긋나는지 보고, 그 어긋남의 중앙값을
+// 기준으로 유난한 것만 뺀다. 가파른 구간도 양옆으로 내다보면 잘 맞으므로 살아남는다.
+function medianClean(pts) {
+  if (pts.length < 5) return pts;
+  const res = new Array(pts.length).fill(0);
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = pts[i - 1], b = pts[i + 1], p = pts[i];
+    const t = (b[0] - a[0]) ? (p[0] - a[0]) / (b[0] - a[0]) : 0.5;
+    res[i] = Math.abs(p[1] - (a[1] + (b[1] - a[1]) * t));
+  }
+  const srt = res.slice(1, -1).sort((x, y) => x - y);
+  const mad = srt[srt.length >> 1] || 0;
+  const lim = Math.max(3, 6 * mad);
+  return pts.filter((p, i) => i === 0 || i === pts.length - 1 || res[i] <= lim);
+}
+// 곡선 길이를 따라 고르게 n 점만 남긴다 (되접히는 곡선도 망가지지 않는다).
+function resampleArc(pts, n) {
+  if (n < 2 || pts.length <= n) return pts;
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) {
+    cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  }
+  const L = cum[cum.length - 1];
+  if (!L) return [pts[0]];
+  const out = [];
+  for (let k = 0, j = 0; k < n; k++) {
+    const t = L * k / (n - 1);
+    while (j < cum.length - 2 && cum[j + 1] < t) j++;
+    const seg = cum[j + 1] - cum[j], f = seg ? (t - cum[j]) / seg : 0;
+    out.push([pts[j][0] + (pts[j + 1][0] - pts[j][0]) * f, pts[j][1] + (pts[j + 1][1] - pts[j][1]) * f]);
+  }
+  return out;
+}
+function tidy(pts) {
+  if (S.clean) pts = medianClean(pts);
+  if (S.npts > 0) pts = resampleArc(pts, S.npts);
+  return pts;
+}
+
+// ── 계열 자동 찾기 ───────────────────────────────────────────────────────────
+// 영역 안의 색을 세어 배경·회색을 뺀 뒤, 가까운 색끼리 뭉쳐 계열 후보를 만든다.
+// 흑백 그림이면 어두운 픽셀 한 무리가 후보가 된다.
+// 배경색 — 영역에서 가장 흔한 색. 흰 종이일 때가 대부분이지만 회색 판일 수도 있다.
+// 가장자리 흐림(안티에일리어싱)을 가려내려면 "무엇에서 흐려졌는지"를 알아야 한다.
+function isTintOf(c, core, bg) {
+  const d = [core[0] - bg[0], core[1] - bg[1], core[2] - bg[2]];
+  const L2 = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+  if (L2 < 900) return false;
+  const t = ((c[0] - bg[0]) * d[0] + (c[1] - bg[1]) * d[1] + (c[2] - bg[2]) * d[2]) / L2;
+  if (t < 0.12 || t > 0.95) return false;                 // 배경도 아니고 원색도 아닌 중간
+  return Math.hypot(c[0] - bg[0] - d[0] * t, c[1] - bg[1] - d[1] * t, c[2] - bg[2] - d[2] * t) <= 30;
+}
+function findSeries() {
+  const p = imagePixels(); if (!p) return [];
+  const [x0, y0, x1, y1] = roiBox();
+  const w = x1 - x0, h = y1 - y0, d = p.data;
+  if (w < 8 || h < 8) return [];
+  const bins = new Map(), all = new Map();
+  let darkN = 0;
+  for (let y = 0; y < h; y++) {
+    let o = ((y + y0) * p.width + x0) * 4;
+    for (let x = 0; x < w; x++, o += 4) {
+      if (d[o + 3] < 128) continue;
+      const r = d[o], g = d[o + 1], b = d[o + 2];
+      const k = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+      const e0 = all.get(k);
+      if (e0) { e0.n++; e0.r += r; e0.g += g; e0.b += b; } else all.set(k, { n: 1, r, g, b });
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      const sat = mx ? (mx - mn) / mx : 0;
+      if (sat >= 0.22 && mx >= 45) {                       // 뚜렷한 색 — 계열 후보
+        const e = bins.get(k);
+        if (e) { e.n++; e.r += r; e.g += g; e.b += b; } else bins.set(k, { n: 1, r, g, b });
+      } else if (mx < 120) darkN++;                        // 검은 선 (연회색 격자선은 여기 안 든다)
+    }
+  }
+  const bgE = [...all.values()].sort((a, b) => b.n - a.n)[0];
+  const bg = bgE ? [bgE.r / bgE.n, bgE.g / bgE.n, bgE.b / bgE.n] : [255, 255, 255];
+  const total = w * h, minN = Math.max(40, total * 0.0005);
+  // 진한 색부터 자리를 잡는다. 흐린 가장자리는 늘 원색보다 연하므로 원색이 대표가 된다.
+  const cand = [...bins.values()].map(e => {
+    const c = [e.r / e.n, e.g / e.n, e.b / e.n];
+    const mx = Math.max(...c), mn = Math.min(...c);
+    return { n: e.n, c, sat: mx ? (mx - mn) / mx : 0 };
+  }).sort((a, b) => b.sat - a.sat || b.n - a.n);
+  const merged = [];
+  for (const e of cand) {
+    let hit = null;
+    for (const o of merged) {
+      if (Math.hypot(o.c[0] - e.c[0], o.c[1] - e.c[1], o.c[2] - e.c[2]) < 76) { hit = o; break; }
+      if (isTintOf(e.c, o.c, bg)) { hit = o; break; }      // 같은 색이 흐려진 것 — 한 계열로
+    }
+    if (hit) {
+      hit.n += e.n;
+      if (e.n > hit.top) { hit.top = e.n; hit.c = e.c.slice(); }
+    } else merged.push({ n: e.n, top: e.n, c: e.c.slice() });
+  }
+  const out = merged.filter(o => o.n >= minN).sort((a, b) => b.n - a.n).slice(0, 8).map(o => ({
+    mode: 'color', target: rgbHex(o.c[0], o.c[1], o.c[2]), c: o.c, n: o.n,
+  }));
+  // 서로 색이 가까우면 허용 오차를 좁혀 남의 곡선을 물지 않게 한다.
+  for (const s of out) {
+    let near = 1e9;
+    for (const t of out) if (t !== s) near = Math.min(near, Math.hypot(s.c[0] - t.c[0], s.c[1] - t.c[1], s.c[2] - t.c[2]));
+    s.tol = clamp(Math.round(Math.min(S.tol, near / 2 - 4)), 18, 200);
+  }
+  if (darkN >= minN) out.push({ mode: 'dark', target: '#15181c', tol: 120, n: darkN });
+  return out.sort((a, b) => b.n - a.n);
+}
+// 선인가 점(마커)인가 — 덩어리의 크기·모양·퍼짐으로 가른다.
+function kindOf(M) {
+  const comps = components(M, 4);
+  if (!comps.length) return null;
+  // 큰 덩어리 하나가 넓이의 대부분을 차지하고 가로로 길게 뻗어 있으면 <선>이다.
+  // 개수만 세면 범례 글자 스무 개에 밀려 곡선이 마커로 둔갑한다.
+  const area = comps.reduce((a, c) => a + c.area, 0);
+  const big = comps.reduce((a, c) => c.area > a.area ? c : a, comps[0]);
+  if (big.area >= 0.35 * area && (big.x1 - big.x0) >= 0.25 * M.w) return 'line';
+  const size = medOf(comps.map(c => Math.max(c.x1 - c.x0, c.y1 - c.y0) + 1));
+  const elong = medOf(comps.map(elongOf));
+  const cxs = comps.map(c => c.cx);
+  const spread = Math.max(...cxs) - Math.min(...cxs);
+  const marker = comps.length >= 4 && size <= Math.max(8, M.w * 0.035) && elong <= 2.3 && spread >= M.w * 0.15;
+  return marker ? 'blob' : 'line';
+}
+// 한 계열에서 데이터셋 하나(또는 같은 색 곡선이 여럿이면 여럿)를 뽑는다.
+function pullSeries(s) {
+  const M = buildMask(s); if (!M) return [];
+  const kind = kindOf(M); if (!kind) return [];
+  const put = pts => pts.map(q => [M.x0 + q[0] + 0.5, M.y0 + q[1] + 0.5]);
+  if (kind === 'blob') {
+    const pts = traceBlob(M);
+    return pts.length >= 3 ? [{ pts, kind }] : [];
+  }
+  const groups = groupChains(mergeChains(traceChains(M)), M.w);
+  if (!groups.length) return [];
+  const wide = groups[0].span;
+  // 진짜 곡선은 한 줄기가 길게 이어진다. 글자처럼 짧은 조각이 흩어져 넓은 척하는 것은 뺀다
+  // — 범례 글자가 가로로 퍼져 곡선 행세를 하던 것이 여기서 걸러진다.
+  return groups
+    .filter(g => g.span >= Math.max(0.18 * M.w, 0.3 * wide) && g.run >= 0.25 * wide && g.pts.length >= 4)
+    .slice(0, 3)
+    .map(g => ({ pts: tidy(put(g.pts)), kind }));
+}
+function autoDiscover() {
+  if (!S.img) return toast(T().stNeedImg, 'bad');
+  if (!TR) return toast(T().stNeedCal, 'bad');
+  const series = findSeries();
+  const found = [];
+  for (const s of series) {
+    for (const g of pullSeries(s)) {
+      const xs = g.pts.map(q => q[0]);
+      if (g.pts.length < 4 || Math.max(...xs) - Math.min(...xs) < 0.15 * (roiBox()[2] - roiBox()[0])) continue;
+      found.push({ color: s.mode === 'dark' ? '#15181c' : s.target, pts: g.pts });
+      if (found.length >= 8) break;
+    }
+    if (found.length >= 8) break;
+  }
+  if (!found.length) return toast(T().stNoSeries, 'bad');
+  snap();
+  S.ds = found.map((f, i) => ({ name: T().dsName(i + 1), color: f.color, on: true, pts: f.pts }));
+  S.act = 0; hoverPt = -1; lastPt = -1;
+  renderAll(); save();
+  toast(T().stDiscovered({ k: found.length, n: found.reduce((a, f) => a + f.pts.length, 0) }), 'ok');
 }
 function runTrace() {
   if (!S.img) return toast(T().stNeedImg, 'bad');
@@ -1305,7 +1652,12 @@ function runTrace() {
   const a = act(); if (!a) return;
   const M = buildMask();
   if (!M) return toast(T().stNone, 'bad');
-  const pts = S.algo === 'line' ? traceLine(M) : traceBlob(M);
+  let pts;
+  if (S.algo === 'line') {
+    const groups = groupChains(mergeChains(traceChains(M)), M.w);
+    pts = tidy([].concat(...groups.map(g => g.pts)).sort((p, q) => p[0] - q[0])
+      .map(q => [M.x0 + q[0] + 0.5, M.y0 + q[1] + 0.5]));
+  } else pts = traceBlob(M);
   if (!pts.length) return toast(T().stNone, 'bad');
   snap();
   a.pts = pts;
@@ -1313,6 +1665,7 @@ function runTrace() {
   renderAll(); save();
   toast(T().stFound({ n: pts.length }), 'ok');
 }
+
 function buildMaskPreview() {
   maskCache = null;
   if (!S.img) return;
@@ -1332,6 +1685,7 @@ function buildMaskPreview() {
 }
 
 $('#run').onclick = runTrace;
+$('#discover').onclick = autoDiscover;
 $('#eyedrop').onclick = () => {
   if (!S.img) return toast(T().stNeedImg, 'bad');
   pending = 'eyedrop'; armed = null; toast(T().stEyedrop); stageCursor(); renderCal();
@@ -1442,12 +1796,12 @@ function renderAuto() {
   for (const b of $('#modeSeg').children) b.classList.toggle('on', b.dataset.m === S.mode);
   for (const b of $('#algoSeg').children) b.classList.toggle('on', b.dataset.a === S.algo);
   $('#tolN').value = S.tol; $('#tolR').value = S.tol;
-  $('#stepN').value = S.step; $('#stepR').value = S.step;
+  $('#nptsN').value = S.npts; $('#nptsR').value = S.npts;
+  $('#cleanChk').checked = S.clean;
+  $('#discover').disabled = !TR;
   $('#minaN').value = S.minA; $('#minaR').value = S.minA;
-  const st = $('#stepN').closest('.num'), sr = $('#stepR'), ma = $('#minaN').closest('.num'), mr = $('#minaR');
-  const line = S.algo === 'line';
-  st.style.display = sr.style.display = line ? '' : 'none';
-  ma.style.display = mr.style.display = line ? 'none' : '';
+  const ma = $('#minaN').closest('.num'), mr = $('#minaR'), line = S.algo === 'line';
+  ma.style.display = mr.style.display = line ? 'none' : '';   // 최소 크기는 마커에만 쓰인다
   const roi = S.roi;
   $('#roiInfo').textContent = roi
     ? `${Math.round(roi[2] - roi[0])}×${Math.round(roi[3] - roi[1])} px`
@@ -1571,7 +1925,7 @@ function buildExport() {
   if (!n) return null;
   if (S.fmt === 'json') {
     const o = {
-      tool: 'plot-digitizer', version: '1.0.0', source: S.imgName || null,
+      tool: 'plot-digitizer', version: '1.1.0', source: S.imgName || null,
       axes: {
         x: { from: num(S.val.x1), to: num(S.val.x2), log: S.logx },
         y: { from: num(S.val.y1), to: num(S.val.y2), log: S.logy },
@@ -1634,12 +1988,12 @@ $('#dlBtn').onclick = () => {
 // ── 작업 파일 — 그림·축·점을 한 덩어리로 ─────────────────────────────────────
 function projectJSON() {
   return JSON.stringify({
-    app: 'plot-digitizer', version: '1.0.0', saved: new Date().toISOString(),
+    app: 'plot-digitizer', version: '1.1.0', saved: new Date().toISOString(),
     image: S.imgSrc ? { name: S.imgName, src: S.imgSrc, w: S.imgW, h: S.imgH } : null,
     cal: S.cal, val: S.val, logx: S.logx, logy: S.logy, roi: S.roi,
     datasets: S.ds,
-    settings: { mode: S.mode, algo: S.algo, target: S.target, tol: S.tol, step: S.step, minA: S.minA,
-                ps: S.ps, dim: S.dim, guides: S.guides, join: S.join, loupe: S.loupe,
+    settings: { mode: S.mode, algo: S.algo, target: S.target, tol: S.tol, minA: S.minA,
+                npts: S.npts, clean: S.clean, ps: S.ps, dim: S.dim, guides: S.guides, join: S.join, loupe: S.loupe,
                 fmt: S.fmt, sortX: S.sortX, longFmt: S.longFmt, sig: S.sig },
   });
 }
@@ -1678,7 +2032,7 @@ function writeState() {
     store.set('state', JSON.stringify({
       cal: S.cal, val: S.val, logx: S.logx, logy: S.logy, roi: S.roi, ds: S.ds, act: S.act,
       imgName: S.imgName, tool: S.tool, mode: S.mode, algo: S.algo, target: S.target, tol: S.tol,
-      step: S.step, minA: S.minA, ps: S.ps, dim: S.dim, guides: S.guides, join: S.join,
+      minA: S.minA, npts: S.npts, clean: S.clean, ps: S.ps, dim: S.dim, guides: S.guides, join: S.join,
       loupe: S.loupe, maskShow: S.maskShow, fmt: S.fmt, sortX: S.sortX, longFmt: S.longFmt, sig: S.sig,
     }));
     if (imgDirty) {                       // 그림은 바뀔 때만 — 몇 MB 를 매번 쓰지 않는다
@@ -1745,7 +2099,8 @@ seg('#modeSeg', 'm', 'mode', () => {
 seg('#algoSeg', 'a', 'algo');
 seg('#fmtSeg', 'f', 'fmt');
 pair('#tolN', '#tolR', 'tol', () => { if (S.maskShow) buildMaskPreview(); });
-pair('#stepN', '#stepR', 'step');
+pair('#nptsN', '#nptsR', 'npts');
+check('#cleanChk', 'clean');
 pair('#minaN', '#minaR', 'minA');
 pair('#psN', '#psR', 'ps');
 pair('#dimN', '#dimR', 'dim');

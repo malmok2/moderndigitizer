@@ -34,7 +34,7 @@ async function makeFigures(page) {
   await page.goto('about:blank');
   const urls = await page.evaluate(() => {
     const mk = (draw) => {
-      const c = document.createElement('canvas'); c.width = 800; c.height = 600;
+      const c = document.createElement('canvas'); c.width = 820; c.height = 620;
       const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, 800, 600);
       draw(g); return c.toDataURL('image/png');
     };
@@ -73,7 +73,45 @@ async function makeFigures(page) {
       g.fillStyle = '#2ca02c';
       for (const [x, y] of MARK) g.fillRect(ux(x) - 5, vy(y) - 5, 10, 10);
     });
-    return { lin, log };
+    // 3) 자동 찾기용 — 격자선·범례·교차가 모두 있는 빡센 그림 (x 0..10, y 0..100)
+    const line = (g, f, col, lw) => {
+      g.strokeStyle = col; g.lineWidth = lw || 3; g.beginPath();
+      for (let i = 0; i <= 500; i++) {
+        const x = i / 50, u = U0 + (x / 10) * (U1 - U0), v = V0 + (f(x) / 100) * (V1 - V0);
+        i ? g.lineTo(u, v) : g.moveTo(u, v);
+      }
+      g.stroke();
+    };
+    const frame = g => {
+      const ux = x => U0 + (x / 10) * (U1 - U0), vy = y => V0 + (y / 100) * (V1 - V0);
+      g.strokeStyle = '#ddd'; g.lineWidth = 1;
+      for (let x = 1; x < 10; x++) { g.beginPath(); g.moveTo(ux(x), V0); g.lineTo(ux(x), V1); g.stroke(); }
+      for (let y = 10; y < 100; y += 10) { g.beginPath(); g.moveTo(U0, vy(y)); g.lineTo(U1, vy(y)); g.stroke(); }
+      g.strokeStyle = '#000'; g.lineWidth = 2; g.strokeRect(U0, V1, U1 - U0, V0 - V1);
+      g.font = '14px sans-serif'; g.fillStyle = '#000'; g.textAlign = 'center';
+      for (let x = 0; x <= 10; x += 2) g.fillText(String(x), ux(x), V0 + 22);
+    };
+    const MK2 = [1, 2.5, 4, 5.5, 7, 8.5].map(x => [x, 50 + 30 * Math.sin(x)]);
+    const busy = mk(g => {
+      const ux = x => U0 + (x / 10) * (U1 - U0), vy = y => V0 + (y / 100) * (V1 - V0);
+      frame(g);
+      line(g, x => 100 - 100 * Math.exp(-0.5 * x), '#d62728');
+      line(g, x => 10 * x, '#1f77b4');
+      line(g, x => 0.9 * x * x, '#000000', 2.5);
+      g.fillStyle = '#2ca02c';
+      for (const [x, y] of MK2) g.fillRect(ux(x) - 5, vy(y) - 5, 10, 10);
+      const lx = ux(6.4), ly = vy(28);          // 범례 — 색 견본까지 있어 자동 찾기를 흔든다
+      g.font = '13px sans-serif'; g.textAlign = 'left';
+      [['#d62728', 'Case A'], ['#1f77b4', 'Case B'], ['#000000', 'Case D'], ['#2ca02c', 'Measured']]
+        .forEach(([c, t], i) => {
+          g.strokeStyle = c; g.lineWidth = 3;
+          g.beginPath(); g.moveTo(lx, ly + i * 20); g.lineTo(lx + 24, ly + i * 20); g.stroke();
+          g.fillStyle = '#000'; g.fillText(t, lx + 32, ly + i * 20 + 4);
+        });
+    });
+    // 4) 같은 색 곡선 둘이 교차하는 그림
+    const cross = mk(g => { frame(g); line(g, x => 20 + 6 * x, '#d62728'); line(g, x => 80 - 6 * x, '#d62728'); });
+    return { lin, log, busy, cross };
   });
   const out = {};
   for (const [k, v] of Object.entries(urls)) {
@@ -234,7 +272,48 @@ async function makeFigures(page) {
   for (const [t, T] of sp) if (t >= 1 && t <= 58) ws = Math.max(ws, Math.abs(T - 280 * (1 - Math.exp(-t / 14))));
   ok('예제 곡선 A 를 되찾는다', sp.length > 80 && ws < 3, `${sp.length}점, 최대 차이 ${ws.toFixed(2)} ℃ (세로 범위 300)`);
 
-  // ── 4. 어두운 화면 · 언어 ─────────────────────────────────────────────────
+  // ── 4. 자동 찾기: 격자선·범례·교차가 있는 빡센 그림 ───────────────────────
+  console.log('\n곡선 자동 찾기 (색 곡선 셋 + 마커 + 격자선 + 범례)');
+  const bx = x => 100 + (x / 10) * 600, by = y => 500 + (y / 100) * (-420);
+  const rms = (rows, f) => {
+    let s = 0, n = 0;
+    for (const [x, y] of rows) { if (x < 0.3 || x > 9.7) continue; s += (y - f(x)) ** 2; n++; }
+    return n ? Math.sqrt(s / n) : 1e9;
+  };
+  await fresh();
+  await open(figs.busy);
+  await click(bx(0), by(0)); await click(bx(10), by(0)); await click(bx(0), by(0)); await click(bx(0), by(100));
+  await setVals({ '#vx1': '0', '#vx2': '10', '#vy1': '0', '#vy2': '100' });
+  await page.click('#discover'); await page.waitForTimeout(700);
+  const sets = await page.evaluate(() => S.ds.map(d => ({ color: d.color, rows: dataPts(d) })));
+  ok('계열을 스스로 찾는다 (넷)', sets.length === 4,
+     sets.map(d => `${d.color} ${d.rows.length}점`).join(' · '));
+  const bestOf = f => sets.map(d => ({ d, e: rms(d.rows, f) })).sort((a, b) => a.e - b.e)[0];
+  for (const [nm, f, col] of [['빨강 100−100e^(−x/2)', x => 100 - 100 * Math.exp(-0.5 * x), '#d62728'],
+                              ['파랑 10x', x => 10 * x, '#1f77b4'],
+                              ['검정 0.9x² (범례 글자 속에서)', x => 0.9 * x * x, '#15181c']]) {
+    const b = bestOf(f);
+    ok('  ' + nm, b.e < 0.5 && b.d.color === col, `색 ${b.d.color}, rms ${b.e.toFixed(3)} (세로 범위 100)`);
+  }
+  const MK2 = [1, 2.5, 4, 5.5, 7, 8.5].map(x => [x, 50 + 30 * Math.sin(x)]);
+  const gr = sets.find(d => d.color === '#2ca02c');
+  const mkOk = gr && gr.rows.length === MK2.length &&
+    MK2.every((p, i) => near(gr.rows[i][0], p[0], 0.06) && near(gr.rows[i][1], p[1], 0.6));
+  ok('  초록 마커 여섯 (범례 견본은 빼고)', !!mkOk, gr ? `${gr.rows.length}점` : '못 찾음');
+
+  console.log('\n같은 색 곡선 둘이 교차');
+  await fresh();
+  await open(figs.cross);
+  await click(bx(0), by(0)); await click(bx(10), by(0)); await click(bx(0), by(0)); await click(bx(0), by(100));
+  await setVals({ '#vx1': '0', '#vx2': '10', '#vy1': '0', '#vy2': '100' });
+  await page.click('#discover'); await page.waitForTimeout(700);
+  const xs = await page.evaluate(() => S.ds.map(d => dataPts(d)));
+  const up = xs.map(r => rms(r, x => 20 + 6 * x)).sort((a, b) => a - b)[0];
+  const dn = xs.map(r => rms(r, x => 80 - 6 * x)).sort((a, b) => a - b)[0];
+  ok('교차하는 두 곡선을 갈라 놓는다', xs.length === 2 && up < 0.3 && dn < 0.3,
+     `${xs.length}개 · rms ${up.toFixed(3)} / ${dn.toFixed(3)}`);
+
+  // ── 5. 어두운 화면 · 언어 ─────────────────────────────────────────────────
   console.log('\n화면');
   await page.click('#themeBtn');
   ok('어두운 화면', await page.evaluate(() => document.documentElement.dataset.theme) === 'dark');
