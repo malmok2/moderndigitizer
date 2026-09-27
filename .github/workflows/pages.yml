@@ -38,3 +38,42 @@ jobs:
           commit=$(git commit-tree "$tree" -m "publish ${GITHUB_SHA}")
           git push --force origin "$commit:refs/heads/gh-pages"
           echo "올렸다: https://malmok2.github.io/moderndigitizer/" >> "$GITHUB_STEP_SUMMARY"
+
+  # 올린 것이 진짜로 그 주소에서 뜨는지 본다. 저장소 안에서 아무리 맞아도
+  # Pages 가 실제로 서빙하지 않으면 소용이 없다 — 그건 밖에서만 확인된다.
+  smoke:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 라이브 주소 확인
+        run: |
+          set -euo pipefail
+          base="https://malmok2.github.io/moderndigitizer"
+          ver="v$(cat tools/VERSION)"
+          echo "기다리는 판본: $ver"
+          for i in $(seq 1 20); do
+            code=$(curl -sS -o page.html -w '%{http_code}' "$base/" || echo 000)
+            if [ "$code" = "200" ] && grep -q "$ver" page.html; then
+              echo "index.html 200 · $ver 확인 (약 $((i * 15))초 걸림)"
+              break
+            fi
+            if [ "$i" = "20" ]; then
+              echo "::error::5분 안에 $ver 이 올라오지 않았다 (마지막 응답 $code)"
+              exit 1
+            fi
+            sleep 15
+          done
+          read -r icode ictype isize < <(curl -sS -o icon.svg -w '%{http_code} %{content_type} %{size_download}' "$base/icon.svg")
+          echo "icon.svg: $icode · $ictype · ${isize}B"
+          [ "$icode" = "200" ] || { echo "::error::아이콘이 안 뜬다 ($icode)"; exit 1; }
+          case "$ictype" in image/svg+xml*) ;; *) echo "::error::아이콘 형식이 이상하다 ($ictype)"; exit 1;; esac
+          cmp -s icon.svg docs/icon.svg || { echo "::error::서빙되는 아이콘이 저장소의 것과 다르다"; exit 1; }
+          {
+            echo "### 라이브 확인 — $ver"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| \`$base/\` | 200 · $ver |"
+            echo "| \`$base/icon.svg\` | $icode · $ictype · ${isize}B · 저장소와 동일 |"
+          } >> "$GITHUB_STEP_SUMMARY"
